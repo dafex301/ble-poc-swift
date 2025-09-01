@@ -13,6 +13,7 @@ struct SimpleChatView: View {
     @State private var messageText = ""
     @State private var showingNameAlert = false
     @State private var newName = ""
+    @State private var showingRelayStats = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -29,6 +30,11 @@ struct SimpleChatView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button("Stats") {
+                    showingRelayStats = true
+                }
+                .foregroundColor(.purple)
+                
                 Button("Refresh") {
                     viewModel.refreshConnections()
                 }
@@ -53,6 +59,9 @@ struct SimpleChatView: View {
         } message: {
             Text("Enter a new name for this device")
         }
+        .sheet(isPresented: $showingRelayStats) {
+            RelayStatsView(viewModel: viewModel)
+        }
         // iPad specific improvements
         .navigationViewStyle(.stack)
     }
@@ -61,6 +70,7 @@ struct SimpleChatView: View {
     
     private var headerView: some View {
         VStack(spacing: 8) {
+            // Connection status row
             HStack {
                 Circle()
                     .fill(viewModel.isConnected ? .green : .orange)
@@ -75,6 +85,25 @@ struct SimpleChatView: View {
                 Text("You: \(viewModel.myName)")
                     .font(.caption)
                     .foregroundColor(.primary)
+            }
+            
+            // Mesh status row
+            HStack {
+                Circle()
+                    .fill(viewModel.isConnected ? .purple : .gray)
+                    .frame(width: 8, height: 8)
+                
+                Text(viewModel.meshStatus)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                if viewModel.relayMetrics.messagesReceived > 0 {
+                    Text("\(viewModel.relayMetrics.messagesReceived) msgs")
+                        .font(.caption2)
+                        .foregroundColor(.purple)
+                }
             }
             
             if !viewModel.connectedPeers.isEmpty {
@@ -170,10 +199,21 @@ struct SimpleChatView: View {
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text(message.isSystemMessage ? "System" : message.sender)
+                        Text(message.messageTypeIndicator)
+                            .font(.caption2)
+                        
+                        Text(message.displaySender)
                             .font(.caption)
                             .fontWeight(.medium)
                             .foregroundColor(message.isSystemMessage ? .orange : .blue)
+                        
+                        if !message.isSystemMessage {
+                            Text(message.ttlIndicator)
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                        }
+                        
+                        Spacer()
                         
                         Text(message.formattedTime)
                             .font(.caption2)
@@ -229,6 +269,108 @@ struct SimpleChatView: View {
         
         viewModel.sendMessage(messageText)
         messageText = ""
+    }
+}
+
+// MARK: - Relay Statistics View
+
+struct RelayStatsView: View {
+    @ObservedObject var viewModel: SimpleChatViewModel
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Network Overview
+                    statsSection("Network Overview") {
+                        statRow("Network Degree", value: "\(viewModel.networkDegree) connections")
+                        statRow("Mesh Status", value: viewModel.meshStatus)
+                        statRow("Connected Peers", value: viewModel.connectedPeers.joined(separator: ", "))
+                    }
+                    
+                    // Message Statistics
+                    statsSection("Message Statistics") {
+                        statRow("Total Messages", value: "\(viewModel.relayMetrics.messagesReceived)")
+                        statRow("Direct Messages", value: "\(viewModel.relayMetrics.directMessages)")
+                        statRow("Relayed Messages", value: "\(viewModel.relayMetrics.relayedMessages)")
+                        statRow("Relay Ratio", value: "\(Int(viewModel.relayMetrics.relayRatio * 100))%")
+                        if viewModel.relayMetrics.averageHopCount > 0 {
+                            statRow("Avg Hop Count", value: String(format: "%.1f", viewModel.relayMetrics.averageHopCount))
+                        }
+                    }
+                    
+                    // Relay Performance
+                    statsSection("Relay Performance") {
+                        statRow("Relays Scheduled", value: "\(viewModel.relayMetrics.relaysScheduled)")
+                        statRow("Relays Executed", value: "\(viewModel.relayMetrics.relaysExecuted)")
+                        statRow("Relays Cancelled", value: "\(viewModel.relayMetrics.relaysCancelled)")
+                        statRow("Relay Efficiency", value: "\(Int(viewModel.relayEfficiency * 100))%")
+                        statRow("Messages Relayed", value: "\(viewModel.relayMetrics.messagesRelayed)")
+                    }
+                    
+                    // Duplicate Detection
+                    statsSection("Duplicate Detection") {
+                        statRow("Duplicates Blocked", value: "\(viewModel.relayMetrics.duplicatesBlocked)")
+                        statRow("Detection Rate", value: "\(Int(viewModel.duplicateRate * 100))%")
+                    }
+                    
+                    // Actions
+                    VStack(spacing: 12) {
+                        Button("Show Detailed Stats in Chat") {
+                            viewModel.showRelayStats()
+                            dismiss()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        
+                        Button("Reset Metrics") {
+                            viewModel.resetRelayMetrics()
+                        }
+                        .buttonStyle(.bordered)
+                        .foregroundColor(.orange)
+                    }
+                    .padding(.top)
+                }
+                .padding()
+            }
+            .navigationTitle("Relay Statistics")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func statsSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                content()
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
+        }
+    }
+    
+    private func statRow(_ label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+        }
+        .font(.subheadline)
     }
 }
 

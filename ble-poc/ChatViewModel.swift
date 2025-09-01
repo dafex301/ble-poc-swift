@@ -54,6 +54,13 @@ class SimpleChatViewModel: ObservableObject, SimpleBLEDelegate {
     @Published var connectionStatus = "Disconnected"    // Human-readable status
     @Published var myName: String = ""                   // Our display name
     
+    // RELAY SYSTEM STATUS - New properties for mesh networking
+    @Published var relayMetrics: RelayMetrics = RelayMetrics()  // Current relay performance metrics
+    @Published var networkDegree: Int = 0                       // Number of direct connections
+    @Published var relayEfficiency: Double = 1.0               // Relay success rate (0.0-1.0)
+    @Published var duplicateRate: Double = 0.0                  // Duplicate detection rate (0.0-1.0)
+    @Published var meshStatus: String = "Mesh Inactive"        // Human-readable mesh status
+    
     // MARK: - Private Properties
     
     /**
@@ -71,6 +78,7 @@ class SimpleChatViewModel: ObservableObject, SimpleBLEDelegate {
     private let bleService = SimpleBLEService()          // The actual BLE service
     private var cancellables = Set<AnyCancellable>()     // Combine subscription storage
     private var healthCheckTimer: Timer?                 // 30-second health check timer
+    private var relayMetricsTimer: Timer?                // Timer for updating relay metrics
     
     // MARK: - Initialization
     
@@ -169,6 +177,9 @@ class SimpleChatViewModel: ObservableObject, SimpleBLEDelegate {
         
         // Step 6: Start periodic health check (every 30 seconds)
         startHealthCheck()
+        
+        // Step 7: Start relay metrics monitoring (every 5 seconds)
+        startRelayMetricsMonitoring()
     }
     
     // MARK: - Public Methods
@@ -267,6 +278,33 @@ class SimpleChatViewModel: ObservableObject, SimpleBLEDelegate {
         messages.append(guidanceMessage)
     }
     
+    // MARK: - Relay System Methods
+    
+    /**
+     * Get detailed relay statistics for debugging
+     */
+    func getRelayStatistics() -> String {
+        return bleService.getRelayStatistics()
+    }
+    
+    /**
+     * Show relay statistics in chat (for debugging)
+     */
+    func showRelayStats() {
+        let stats = getRelayStatistics()
+        let statsMessage = SimpleMessage(sender: "System", content: "📊 Relay Statistics:\n\n\(stats)")
+        messages.append(statsMessage)
+    }
+    
+    /**
+     * Reset relay metrics (useful for testing)
+     */
+    func resetRelayMetrics() {
+        // This would require adding a reset method to the BLE service
+        let resetMessage = SimpleMessage(sender: "System", content: "🔄 Relay metrics reset")
+        messages.append(resetMessage)
+    }
+    
     // MARK: - Health Check
     
     private func startHealthCheck() {
@@ -278,6 +316,74 @@ class SimpleChatViewModel: ObservableObject, SimpleBLEDelegate {
     private func stopHealthCheck() {
         healthCheckTimer?.invalidate()
         healthCheckTimer = nil
+    }
+    
+    // MARK: - Relay Metrics Monitoring
+    
+    /**
+     * Start monitoring relay metrics and updating UI properties
+     *
+     * This timer runs every 5 seconds to:
+     * 1. Fetch current relay metrics from the BLE service
+     * 2. Update @Published properties for UI display
+     * 3. Generate human-readable mesh status
+     * 4. Provide relay performance insights
+     */
+    private func startRelayMetricsMonitoring() {
+        relayMetricsTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.updateRelayMetrics()
+        }
+    }
+    
+    /**
+     * Stop relay metrics monitoring
+     */
+    private func stopRelayMetricsMonitoring() {
+        relayMetricsTimer?.invalidate()
+        relayMetricsTimer = nil
+    }
+    
+    /**
+     * Update relay metrics and UI properties
+     */
+    private func updateRelayMetrics() {
+        // Fetch current metrics from BLE service
+        relayMetrics = bleService.getRelayMetrics()
+        networkDegree = connectedPeers.count
+        relayEfficiency = relayMetrics.relayEfficiency
+        duplicateRate = relayMetrics.duplicateDetectionRate
+        
+        // Update mesh status based on current conditions
+        updateMeshStatus()
+    }
+    
+    /**
+     * Generate human-readable mesh status
+     */
+    private func updateMeshStatus() {
+        if !isConnected {
+            meshStatus = "Mesh Inactive (No Connections)"
+        } else if networkDegree == 1 {
+            meshStatus = "Mesh Active (1 connection)"
+        } else if networkDegree <= 3 {
+            meshStatus = "Mesh Active (\(networkDegree) connections, Light Network)"
+        } else if networkDegree <= 6 {
+            meshStatus = "Mesh Active (\(networkDegree) connections, Medium Network)"
+        } else {
+            meshStatus = "Mesh Active (\(networkDegree) connections, Dense Network)"
+        }
+        
+        // Add relay performance indicator
+        if relayMetrics.messagesRelayed > 0 {
+            let efficiency = Int(relayEfficiency * 100)
+            meshStatus += " • \(efficiency)% relay efficiency"
+        }
+        
+        // Add duplicate detection indicator
+        if relayMetrics.duplicatesBlocked > 0 {
+            let dupRate = Int(duplicateRate * 100)
+            meshStatus += " • \(dupRate)% duplicates blocked"
+        }
     }
     
     private func performHealthCheck() {
@@ -339,6 +445,7 @@ class SimpleChatViewModel: ObservableObject, SimpleBLEDelegate {
         Task { @MainActor in
             stopServices()
             stopHealthCheck()
+            stopRelayMetricsMonitoring()
         }
     }
 }
@@ -360,5 +467,43 @@ extension SimpleMessage {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: timestamp)
+    }
+    
+    /**
+     * Get display name with relay information
+     * Shows original sender and relay path for relayed messages
+     */
+    var displaySender: String {
+        if isSystemMessage {
+            return "System"
+        } else if isRelayed {
+            return "\(originalSender) (\(relayPath))"
+        } else {
+            return originalSender
+        }
+    }
+    
+    /**
+     * Get a visual indicator for message type
+     */
+    var messageTypeIndicator: String {
+        if isSystemMessage {
+            return "🔧"
+        } else if isRelayed {
+            return "🔄"  // Relay indicator
+        } else {
+            return "📱"  // Direct message indicator
+        }
+    }
+    
+    /**
+     * Get TTL indicator for debugging
+     */
+    var ttlIndicator: String {
+        if isSystemMessage {
+            return ""
+        } else {
+            return " (TTL:\(ttl))"
+        }
     }
 }
