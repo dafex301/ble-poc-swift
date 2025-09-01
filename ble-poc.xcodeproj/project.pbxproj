@@ -29,9 +29,22 @@
 		4C1CF0F42E65974400154C80 /* ble-pocUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "ble-pocUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4CB683982E659841006B8B79 /* Exceptions for "ble-poc" folder in "ble-poc" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4C1CF0DC2E65974300154C80 /* ble-poc */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4C1CF0DF2E65974300154C80 /* ble-poc */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4CB683982E659841006B8B79 /* Exceptions for "ble-poc" folder in "ble-poc" target */,
+			);
 			path = "ble-poc";
 			sourceTree = "<group>";
 		};
@@ -400,6 +413,9 @@
 				DEVELOPMENT_TEAM = UBJNCBNCL5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ble-poc/Info.plist";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "ble-poc uses Bluetooth to create a secure mesh network for chatting with nearby users.";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "ble-poc uses Bluetooth to discover and connect with other bitchat users nearby.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -428,6 +444,9 @@
 				DEVELOPMENT_TEAM = UBJNCBNCL5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "ble-poc/Info.plist";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "ble-poc uses Bluetooth to create a secure mesh network for chatting with nearby users.";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "ble-poc uses Bluetooth to discover and connect with other bitchat users nearby.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

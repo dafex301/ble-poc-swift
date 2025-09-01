@@ -11,7 +11,7 @@ import SwiftUI
 struct ble_pocApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            BLEDemoView()
         }
     }
 }
